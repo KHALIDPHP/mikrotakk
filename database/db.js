@@ -1,71 +1,135 @@
-const Database = require('better-sqlite3');
+const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const bcrypt = require('bcryptjs');
-
-const dbPath = path.join(__dirname, '..', 'data', 'mikrotik.db');
-
-// Ensure data directory exists
 const fs = require('fs');
+
 const dataDir = path.join(__dirname, '..', 'data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+
+const dbPath = path.join(dataDir, 'mikrotik.db');
+const raw = new sqlite3.Database(dbPath);
+
+// Promise wrappers
+const db = {
+  _db: raw,
+  run(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      raw.run(sql, params, function (err) {
+        if (err) reject(err);
+        else resolve({ lastInsertRowid: this.lastID, changes: this.changes });
+      });
+    });
+  },
+  get(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      raw.get(sql, params, (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+  },
+  all(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      raw.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+  },
+  exec(sql) {
+    return new Promise((resolve, reject) => {
+      raw.exec(sql, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  },
+  // Sync-style wrappers using better-sqlite3 API shape
+  prepare(sql) {
+    const stmt = raw.prepare(sql);
+    return {
+      run(...args) {
+        return new Promise((resolve, reject) => {
+          stmt.run(...args, function (err) {
+            if (err) reject(err);
+            else resolve({ lastInsertRowid: this.lastID, changes: this.changes });
+          });
+        });
+      },
+      get(...args) {
+        return new Promise((resolve, reject) => {
+          stmt.get(...args, (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          });
+        });
+      },
+      all(...args) {
+        return new Promise((resolve, reject) => {
+          stmt.all(...args, (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+          });
+        });
+      }
+    };
+  }
+};
+
+// Initialize schema + seed
+async function init() {
+  await db.exec(`
+    PRAGMA journal_mode=WAL;
+    PRAGMA foreign_keys=ON;
+
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      email TEXT,
+      role TEXT DEFAULT 'admin',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_login DATETIME
+    );
+
+    CREATE TABLE IF NOT EXISTS devices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      host TEXT NOT NULL,
+      port INTEGER DEFAULT 8728,
+      username TEXT NOT NULL,
+      password TEXT NOT NULL,
+      description TEXT,
+      status TEXT DEFAULT 'offline',
+      last_seen DATETIME,
+      model TEXT,
+      version TEXT,
+      serial TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS activity_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      device_id INTEGER,
+      action TEXT NOT NULL,
+      details TEXT,
+      ip TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  const admin = await db.get('SELECT id FROM users WHERE username = ?', ['admin']);
+  if (!admin) {
+    const hashed = bcrypt.hashSync('admin123', 10);
+    await db.run(
+      'INSERT INTO users (username, password, email, role) VALUES (?, ?, ?, ?)',
+      ['admin', hashed, 'admin@mikrotik.local', 'admin']
+    );
+    console.log('✅ Default admin created: admin / admin123');
+  }
 }
 
-const db = new Database(dbPath);
-
-// Enable WAL mode for better performance
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
-
-// Initialize tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    email TEXT,
-    role TEXT DEFAULT 'admin',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    last_login DATETIME
-  );
-
-  CREATE TABLE IF NOT EXISTS devices (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    host TEXT NOT NULL,
-    port INTEGER DEFAULT 8728,
-    username TEXT NOT NULL,
-    password TEXT NOT NULL,
-    description TEXT,
-    status TEXT DEFAULT 'offline',
-    last_seen DATETIME,
-    model TEXT,
-    version TEXT,
-    serial TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-
-  CREATE TABLE IF NOT EXISTS activity_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    device_id INTEGER,
-    action TEXT NOT NULL,
-    details TEXT,
-    ip TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (device_id) REFERENCES devices(id)
-  );
-`);
-
-// Create default admin user if not exists
-const adminExists = db.prepare('SELECT id FROM users WHERE username = ?').get('admin');
-if (!adminExists) {
-  const hashedPassword = bcrypt.hashSync('admin123', 10);
-  db.prepare('INSERT INTO users (username, password, email, role) VALUES (?, ?, ?, ?)').run(
-    'admin', hashedPassword, 'admin@mikrotik.local', 'admin'
-  );
-  console.log('✅ Default admin user created: admin / admin123');
-}
+init().catch(console.error);
 
 module.exports = db;
