@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MikroTik SaaS - لوحة التحكم</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --primary:#00d4ff;--primary-dark:#0099cc;--secondary:#7c3aed;
+      --accent:#10b981;--warning:#f59e0b;--danger:#ef4444;
+      --bg:#060d1f;--bg2:#0d1530;--bg3:#111b3a;
+      --card:rgba(255,255,255,0.04);--card-hover:rgba(255,255,255,0.07);
+      --border:rgba(255,255,255,0.08);--border2:rgba(0,212,255,0.2);
+      --text:#e2e8f0;--muted:#64748b;--sidebar-w:260px;
+      --radius:14px;--transition:0.25s ease;
+    }
+    html,body{height:100%;font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+    ::-webkit-scrollbar{width:6px;height:6px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
+    ::-webkit-scrollbar-thumb:hover{background:var(--primary)}
+
+    /* LAYOUT */
+    .app{display:flex;height:100vh;overflow:hidden}
+
+    /* SIDEBAR */
+    .sidebar{
+      width:var(--sidebar-w);min-width:var(--sidebar-w);
+      background:linear-gradient(180deg,#0d1530 0%,#060d1f 100%);
+      border-left:1px solid var(--border);
+      display:flex;flex-direction:column;
+      transition:var(--transition);z-index:100;
+      position:relative;overflow:hidden;
+    }
+    .sidebar::before{
+      content:'';position:absolute;top:-100px;right:-100px;
+      width:300px;height:300px;
+      background:radial-gradient(circle,rgba(0,212,255,0.06),transparent 70%);
+      pointer-events:none;
+    }
+    .sidebar-logo{
+      padding:24px 20px 20px;
+      border-bottom:1px solid var(--border);
+      display:flex;align-items:center;gap:12px;
+    }
+    .logo-box{
+      width:42px;height:42px;
+      background:linear-gradient(135deg,var(--primary),var(--secondary));
+      border-radius:12px;display:flex;align-items:center;justify-content:center;
+      font-size:20px;flex-shrink:0;
+      box-shadow:0 0 20px rgba(0,212,255,0.3);
+    }
+    .logo-text .title{font-size:16px;font-weight:900;color:#fff;line-height:1.2}
+    .logo-text .sub{font-size:11px;color:var(--muted);margin-top:2px}
+
+    .device-selector{padding:16px;border-bottom:1px solid var(--border)}
+    .device-selector label{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:8px;display:block;letter-spacing:1px}
+    .device-select{
+      width:100%;padding:10px 12px;
+      background:rgba(255,255,255,0.05);
+      border:1px solid var(--border);border-radius:10px;
+      color:var(--text);font-family:'Cairo',sans-serif;font-size:13px;
+      cursor:pointer;outline:none;transition:var(--transition);
+    }
+    .device-select:focus{border-color:var(--primary);background:rgba(0,212,255,0.05)}
+
+    .nav-section{padding:16px 12px 8px;flex:1;overflow-y:auto}
+    .nav-label{font-size:10px;color:var(--muted);font-weight:700;letter-spacing:1.5px;padding:0 8px;margin-bottom:8px;text-transform:uppercase}
+    .nav-item{
+      display:flex;align-items:center;gap:12px;
+      padding:11px 12px;border-radius:10px;
+      cursor:pointer;transition:var(--transition);
+      margin-bottom:2px;color:var(--muted);font-size:14px;font-weight:600;
+      position:relative;
+    }
+    .nav-item:hover{background:var(--card-hover);color:var(--text)}
+    .nav-item.active{background:rgba(0,212,255,0.1);color:var(--primary);border:1px solid rgba(0,212,255,0.15)}
+    .nav-item.active::before{
+      content:'';position:absolute;right:0;top:50%;transform:translateY(-50%);
+      width:3px;height:60%;background:var(--primary);border-radius:2px;
+    }
+    .nav-icon{font-size:18px;min-width:24px;text-align:center}
+    .nav-badge{margin-right:auto;background:var(--primary);color:#000;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px}
+
+    .sidebar-footer{padding:16px;border-top:1px solid var(--border)}
+    .user-info{display:flex;align-items:center;gap:10px}
+    .user-avatar{
+      width:36px;height:36px;border-radius:10px;
+      background:linear-gradient(135deg,var(--secondary),var(--primary));
+      display:flex;align-items:center;justify-content:center;font-size:16px;
+    }
+    .user-name{font-size:13px;font-weight:700;color:var(--text)}
+    .user-role{font-size:11px;color:var(--muted)}
+    .logout-btn{
+      margin-right:auto;width:30px;height:30px;border-radius:8px;
+      background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);
+      color:#ef4444;cursor:pointer;display:flex;align-items:center;justify-content:center;
+      font-size:14px;transition:var(--transition);
+    }
+    .logout-btn:hover{background:rgba(239,68,68,0.2)}
+
+    /* MAIN */
+    .main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+
+    /* TOP BAR */
+    .topbar{
+      height:64px;padding:0 28px;
+      display:flex;align-items:center;gap:16px;
+      border-bottom:1px solid var(--border);
+      background:rgba(6,13,31,0.8);backdrop-filter:blur(10px);
+      flex-shrink:0;
+    }
+    .topbar-title{font-size:20px;font-weight:900;color:#fff}
+    .topbar-sub{font-size:13px;color:var(--muted);margin-right:4px}
+    .topbar-actions{display:flex;align-items:center;gap:12px;margin-right:auto}
+    .status-pill{
+      display:flex;align-items:center;gap:6px;
+      padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;
+    }
+    .status-pill.online{background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);color:#10b981}
+    .status-pill.offline{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:#ef4444}
+    .status-dot{width:7px;height:7px;border-radius:50%;background:currentColor;animation:blink 1.5s infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+    .refresh-btn{
+      padding:8px 16px;border-radius:10px;
+      background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.2);
+      color:var(--primary);cursor:pointer;font-family:'Cairo',sans-serif;font-size:13px;
+      font-weight:700;transition:var(--transition);
+    }
+    .refresh-btn:hover{background:rgba(0,212,255,0.2)}
+
+    /* CONTENT */
+    .content{flex:1;overflow-y:auto;padding:24px 28px}
+
+    /* STATS GRID */
+    .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+    .stat-card{
+      background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+      padding:20px;transition:var(--transition);cursor:default;position:relative;overflow:hidden;
+    }
+    .stat-card::before{
+      content:'';position:absolute;top:0;left:0;right:0;height:2px;
+      background:linear-gradient(90deg,transparent,var(--stat-color,var(--primary)),transparent);
+      opacity:0;transition:opacity 0.3s;
+    }
+    .stat-card:hover{background:var(--card-hover);border-color:var(--border2)}
+    .stat-card:hover::before{opacity:1}
+    .stat-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .stat-icon{
+      width:40px;height:40px;border-radius:10px;
+      display:flex;align-items:center;justify-content:center;font-size:18px;
+    }
+    .stat-label{font-size:12px;color:var(--muted);font-weight:600}
+    .stat-value{font-size:28px;font-weight:900;color:#fff;line-height:1}
+    .stat-sub{font-size:12px;color:var(--muted);margin-top:6px}
+    .stat-trend{font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;margin-top:8px;display:inline-block}
+    .trend-up{background:rgba(16,185,129,0.12);color:#10b981}
+    .trend-down{background:rgba(239,68,68,0.12);color:#ef4444}
+
+    /* PROGRESS BAR */
+    .progress-bar{height:6px;background:rgba(255,255,255,0.06);border-radius:3px;margin-top:10px;overflow:hidden}
+    .progress-fill{height:100%;border-radius:3px;transition:width 1s ease;position:relative;overflow:hidden}
+    .progress-fill::after{
+      content:'';position:absolute;inset:0;
+      background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent);
+      animation:sweep 2s linear infinite;
+    }
+    @keyframes sweep{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
+
+    /* PANELS */
+    .panel-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+    .panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+    .panel-header{
+      padding:16px 20px;border-bottom:1px solid var(--border);
+      display:flex;align-items:center;justify-content:space-between;
+    }
+    .panel-title{font-size:14px;font-weight:700;color:#fff;display:flex;align-items:center;gap:8px}
+    .panel-body{padding:16px 20px;max-height:280px;overflow-y:auto}
+    .panel-actions{display:flex;gap:8px}
+
+    /* TABLE */
+    .data-table{width:100%;border-collapse:collapse}
+    .data-table th{
+      text-align:right;padding:8px 12px;font-size:11px;font-weight:700;
+      color:var(--muted);letter-spacing:0.5px;border-bottom:1px solid var(--border);
+      background:rgba(255,255,255,0.02);
+    }
+    .data-table td{padding:10px 12px;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle}
+    .data-table tr:hover td{background:rgba(255,255,255,0.03)}
+    .data-table tr:last-child td{border-bottom:none}
+
+    /* BADGES */
+    .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700}
+    .badge-green{background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);color:#10b981}
+    .badge-red{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:#ef4444}
+    .badge-blue{background:rgba(0,212,255,0.12);border:1px solid rgba(0,212,255,0.25);color:#00d4ff}
+    .badge-yellow{background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.25);color:#f59e0b}
+    .badge-purple{background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.25);color:#a78bfa}
+
+    /* BUTTONS */
+    .btn{padding:7px 14px;border-radius:8px;font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:var(--transition);border:1px solid transparent}
+    .btn-primary{background:rgba(0,212,255,0.15);border-color:rgba(0,212,255,0.3);color:var(--primary)}
+    .btn-primary:hover{background:rgba(0,212,255,0.25)}
+    .btn-danger{background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.25);color:#ef4444}
+    .btn-danger:hover{background:rgba(239,68,68,0.2)}
+    .btn-success{background:rgba(16,185,129,0.12);border-color:rgba(16,185,129,0.25);color:#10b981}
+    .btn-success:hover{background:rgba(16,185,129,0.2)}
+    .btn-sm{padding:5px 10px;font-size:11px}
+    .btn-icon{width:28px;height:28px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:7px;font-size:13px}
+
+    /* FULL TABLE PAGE */
+    .page{display:none;animation:fadeIn 0.3s ease}
+    .page.active{display:block}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+    .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+    .page-title{font-size:22px;font-weight:900;color:#fff}
+    .search-box{
+      display:flex;align-items:center;gap:8px;
+      background:rgba(255,255,255,0.05);border:1px solid var(--border);
+      border-radius:10px;padding:8px 14px;
+    }
+    .search-box input{background:none;border:none;color:var(--text);font-family:'Cairo',sans-serif;font-size:13px;outline:none;min-width:180px}
+
+    .full-table-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+    .full-table-wrap .data-table th,.full-table-wrap .data-table td{padding:13px 16px}
+
+    /* MODAL */
+    .modal-overlay{
+      position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);
+      z-index:1000;display:none;align-items:center;justify-content:center;
+    }
+    .modal-overlay.open{display:flex}
+    .modal{
+      background:var(--bg2);border:1px solid var(--border2);border-radius:20px;
+      padding:32px;width:90%;max-width:500px;max-height:85vh;overflow-y:auto;
+      animation:modalIn 0.3s ease;
+    }
+    @keyframes modalIn{from{opacity:0;transform:scale(0.92)}to{opacity:1;transform:scale(1)}}
+    .modal-title{font-size:18px;font-weight:900;color:#fff;margin-bottom:24px;display:flex;align-items:center;gap:10px}
+    .form-row{margin-bottom:16px}
+    .form-row label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin-bottom:7px;letter-spacing:0.5px}
+    .form-row input,.form-row select{
+      width:100%;padding:11px 14px;
+      background:rgba(255,255,255,0.05);border:1px solid var(--border);
+      border-radius:10px;color:var(--text);font-family:'Cairo',sans-serif;
+      font-size:14px;outline:none;transition:var(--transition);
+    }
+    .form-row input:focus,.form-row select:focus{border-color:var(--primary);background:rgba(0,212,255,0.04)}
+    .form-row select option{background:var(--bg2)}
+    .modal-actions{display:flex;gap:10px;margin-top:24px;justify-content:flex-end}
+
+    /* DEVICE CARD */
+    .devices-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+    .device-card{
+      background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+      padding:20px;transition:var(--transition);cursor:default;
+    }
+    .device-card:hover{background:var(--card-hover);border-color:var(--border2)}
+    .device-card.selected{border-color:var(--primary);background:rgba(0,212,255,0.05)}
+    .dc-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+    .dc-icon{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--secondary));display:flex;align-items:center;justify-content:center;font-size:20px}
+    .dc-name{font-size:15px;font-weight:700;color:#fff}
+    .dc-host{font-size:12px;color:var(--muted)}
+    .dc-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+    .dc-stat{background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 10px}
+    .dc-stat-label{font-size:10px;color:var(--muted);font-weight:600}
+    .dc-stat-val{font-size:16px;font-weight:900;color:#fff}
+    .dc-actions{display:flex;gap:8px}
+
+    /* TOAST */
+    .toast-container{position:fixed;bottom:24px;left:24px;z-index:9999;display:flex;flex-direction:column;gap:10px}
+    .toast{
+      padding:14px 18px;border-radius:12px;font-size:13px;font-weight:600;
+      display:flex;align-items:center;gap:10px;min-width:280px;
+      animation:toastIn 0.4s ease,toastOut 0.4s ease 3.6s forwards;
+      backdrop-filter:blur(10px);
+    }
+    @keyframes toastIn{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+    @keyframes toastOut{to{opacity:0;transform:translateX(-20px)}}
+    .toast.success{background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:#6ee7b7}
+    .toast.error{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5}
+    .toast.info{background:rgba(0,212,255,0.12);border:1px solid rgba(0,212,255,0.25);color:#7dd3fc}
+
+    /* CHART */
+    .chart-wrap{padding:16px 20px}
+    .mini-chart{height:80px;display:flex;align-items:flex-end;gap:3px}
+    .chart-bar{
+      flex:1;background:linear-gradient(to top,var(--primary),rgba(0,212,255,0.3));
+      border-radius:4px 4px 0 0;transition:height 0.5s ease;min-height:4px;
+    }
+
+    /* INTERFACE LIST */
+    .iface-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+    .iface-item:last-child{border-bottom:none}
+    .iface-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+    .iface-name{font-size:13px;font-weight:600;color:var(--text);flex:1}
+    .iface-type{font-size:11px;color:var(--muted)}
+
+    /* EMPTY STATE */
+    .empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
+    .empty-icon{font-size:48px;margin-bottom:12px;opacity:0.4}
+    .empty-text{font-size:14px}
+
+    /* LOADING */
+    .loading-spinner{display:flex;align-items:center;justify-content:center;padding:40px;gap:12px;color:var(--muted)}
+    .spin{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:sp 0.8s linear infinite}
+    @keyframes sp{to{transform:rotate(360deg)}}
+
+    /* SECTION */
+    .section-title{font-size:16px;font-weight:700;color:#fff;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+
+    /* RESPONSIVE adjustments */
+    @media(max-width:900px){
+      .stats-grid{grid-template-columns:repeat(2,1fr)}
+      .panel-grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-box">🔌</div>
+      <div class="logo-text">
+        <div class="title">MikroTik SaaS</div>
+        <div class="sub">Control Panel</div>
+      </div>
+    </div>
+
+    <div class="device-selector">
+      <label>🖥️ الجهاز المحدد</label>
+      <select class="device-select" id="deviceSelect" onchange="selectDevice(this.value)">
+        <option value="">-- اختر جهازاً --</option>
+      </select>
+    </div>
+
+    <nav class="nav-section">
+      <div class="nav-label">الرئيسية</div>
+      <div class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
+        <span class="nav-icon">📊</span><span>لوحة التحكم</span>
+      </div>
+      <div class="nav-item" onclick="showPage('devices')" id="nav-devices">
+        <span class="nav-icon">🖥️</span><span>الأجهزة</span>
+        <span class="nav-badge" id="badge-devices">0</span>
+      </div>
+
+      <div class="nav-label" style="margin-top:16px">إدارة المستخدمين</div>
+      <div class="nav-item" onclick="showPage('pppoe')" id="nav-pppoe">
+        <span class="nav-icon">👥</span><span>مستخدمو PPPoE</span>
+        <span class="nav-badge" id="badge-pppoe" style="background:var(--secondary)">0</span>
+      </div>
+      <div class="nav-item" onclick="showPage('hotspot')" id="nav-hotspot">
+        <span class="nav-icon">📶</span><span>مستخدمو Hotspot</span>
+        <span class="nav-badge" id="badge-hotspot" style="background:var(--accent)">0</span>
+      </div>
+
+      <div class="nav-label" style="margin-top:16px">إدارة الشبكة</div>
+      <div class="nav-item" onclick="showPage('queues')" id="nav-queues">
+        <span class="nav-icon">⚡</span><span>إدارة Queue</span>
+      </div>
+      <div class="nav-item" onclick="showPage('interfaces')" id="nav-interfaces">
+        <span class="nav-icon">🔗</span><span>الواجهات</span>
+      </div>
+      <div class="nav-item" onclick="showPage('ippools')" id="nav-ippools">
+        <span class="nav-icon">🌐</span><span>IP Pools</span>
+      </div>
+      <div class="nav-item" onclick="showPage('firewall')" id="nav-firewall">
+        <span class="nav-icon">🛡️</span><span>Firewall</span>
+      </div>
+
+      <div class="nav-label" style="margin-top:16px">النظام</div>
+      <div class="nav-item" onclick="showPage('logs')" id="nav-logs">
+        <span class="nav-icon">📋</span><span>سجل الأنشطة</span>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">👤</div>
+        <div>
+          <div class="user-name" id="userName">admin</div>
+          <div class="user-role">مدير النظام</div>
+        </div>
+        <button class="logout-btn" onclick="logout()" title="تسجيل الخروج">🚪</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+    <!-- TOP BAR -->
+    <div class="topbar">
+      <div>
+        <div class="topbar-title" id="pageTitle">لوحة التحكم</div>
+        <div class="topbar-sub" id="deviceName">لا يوجد جهاز محدد</div>
+      </div>
+      <div class="topbar-actions">
+        <div class="status-pill offline" id="statusPill">
+          <span class="status-dot"></span><span id="statusText">غير متصل</span>
+        </div>
+        <button class="refresh-btn" onclick="refreshCurrent()">🔄 تحديث</button>
+      </div>
+    </div>
+
+    <!-- CONTENT AREA -->
+    <div class="content">
+
+      <!-- ===== DASHBOARD PAGE ===== -->
+      <div class="page active" id="page-dashboard">
+
+        <div class="stats-grid">
+          <div class="stat-card" style="--stat-color:var(--primary)">
+            <div class="stat-header">
+              <div class="stat-icon" style="background:rgba(0,212,255,0.12)">🖥️</div>
+              <span class="stat-label">المعالج</span>
+            </div>
+            <div class="stat-value" id="stat-cpu">--</div>
+            <div class="stat-sub">CPU Usage</div>
+            <div class="progress-bar"><div class="progress-fill" id="prog-cpu" style="width:0%;background:linear-gradient(90deg,var(--primary),var(--secondary))"></div></div>
+          </div>
+
+          <div class="stat-card" style="--stat-color:var(--secondary)">
+            <div class="stat-header">
+              <div class="stat-icon" style="background:rgba(124,58,237,0.12)">💾</div>
+              <span class="stat-label">الذاكرة</span>
+            </div>
+            <div class="stat-value" id="stat-ram">--</div>
+            <div class="stat-sub">RAM Usage</div>
+            <div class="progress-bar"><div class="progress-fill" id="prog-ram" style="width:0%;background:linear-gradient(90deg,var(--secondary),#c084fc)"></div></div>
+          </div>
+
+          <div class="stat-card" style="--stat-color:var(--accent)">
+            <div class="stat-header">
+              <div class="stat-icon" style="background:rgba(16,185,129,0.12)">👥</div>
+              <span class="stat-label">PPPoE نشط</span>
+            </div>
+            <div class="stat-value" id="stat-pppoe">--</div>
+            <div class="stat-sub">Active Sessions</div>
+            <div class="stat-trend trend-up" id="trend-pppoe">متصل</div>
+          </div>
+
+          <div class="stat-card" style="--stat-color:var(--warning)">
+            <div class="stat-header">
+              <div class="stat-icon" style="background:rgba(245,158,11,0.12)">📶</div>
+              <span class="stat-label">Hotspot نشط</span>
+            </div>
+            <div class="stat-value" id="stat-hotspot">--</div>
+            <div class="stat-sub">Active Users</div>
+            <div class="stat-trend trend-up" id="trend-hotspot">متصل</div>
+          </div>
+        </div>
+
+        <div class="panel-grid">
+          <!-- System Info -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">🖥️ معلومات الجهاز</div>
+              <button class="btn btn-primary btn-sm" onclick="loadSystemInfo()">تحديث</button>
+            </div>
+            <div class="panel-body" id="systemInfoPanel">
+              <div class="empty-state"><div class="empty-icon">🔌</div><div class="empty-text">اختر جهازاً للبدء</div></div>
+            </div>
+          </div>
+
+          <!-- Interfaces -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">🔗 الواجهات</div>
+              <span class="badge badge-blue" id="iface-count">0 واجهة</span>
+            </div>
+            <div class="panel-body" id="ifacePanel">
+              <div class="empty-state"><div class="empty-icon">🔗</div><div class="empty-text">لا توجد بيانات</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Traffic Chart -->
+        <div class="panel" style="margin-bottom:24px">
+          <div class="panel-header">
+            <div class="panel-title">📈 مراقبة الحركة المرورية</div>
+            <span class="badge badge-green" id="traffic-update">تحديث كل 5 ثوان</span>
+          </div>
+          <div class="chart-wrap">
+            <div style="display:flex;gap:16px;margin-bottom:12px">
+              <span style="font-size:12px;color:var(--primary)">⬆ رفع: <b id="tx-speed">0</b></span>
+              <span style="font-size:12px;color:var(--secondary)">⬇ تحميل: <b id="rx-speed">0</b></span>
+              <span style="font-size:12px;color:var(--muted)" id="traffic-iface"></span>
+            </div>
+            <div class="mini-chart" id="trafficChart"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== DEVICES PAGE ===== -->
+      <div class="page" id="page-devices">
+        <div class="page-header">
+          <div class="page-title">🖥️ الأجهزة المتصلة</div>
+          <button class="btn btn-primary" onclick="openModal('deviceModal')">➕ إضافة جهاز</button>
+        </div>
+        <div class="devices-grid" id="devicesGrid">
+          <div class="loading-spinner"><div class="spin"></div> جاري التحميل...</div>
+        </div>
+      </div>
+
+      <!-- ===== PPPOE PAGE ===== -->
+      <div class="page" id="page-pppoe">
+        <div class="page-header">
+          <div class="page-title">👥 مستخدمو PPPoE</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <div class="search-box">
+              🔍<input id="pppoeSrch" placeholder="بحث..." oninput="filterTable('pppoeTable',this.value)">
+            </div>
+            <button class="btn btn-primary" onclick="openModal('addPPPoEModal')">➕ إضافة مستخدم</button>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-bottom:16px" id="pppoe-tabs">
+          <button class="btn btn-primary" onclick="switchPPPoETab('secrets')" id="tab-secrets">📋 قائمة المستخدمين</button>
+          <button class="btn" onclick="switchPPPoETab('active')" id="tab-active" style="background:var(--card);border-color:var(--border);color:var(--muted)">🟢 الجلسات النشطة</button>
+        </div>
+
+        <div class="full-table-wrap">
+          <table class="data-table" id="pppoeTable">
+            <thead>
+              <tr>
+                <th>الاسم</th><th>البروفايل</th><th>الخدمة</th>
+                <th>الحالة</th><th>IP</th><th>تعليق</th><th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="pppoeBody"><tr><td colspan="7"><div class="loading-spinner"><div class="spin"></div></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===== HOTSPOT PAGE ===== -->
+      <div class="page" id="page-hotspot">
+        <div class="page-header">
+          <div class="page-title">📶 مستخدمو Hotspot</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <div class="search-box">
+              🔍<input id="hsSearch" placeholder="بحث..." oninput="filterTable('hotspotTable',this.value)">
+            </div>
+            <button class="btn btn-primary" onclick="openModal('addHotspotModal')">➕ إضافة مستخدم</button>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-bottom:16px">
+          <button class="btn btn-primary" onclick="switchHSTab('users')" id="hs-tab-users">📋 قائمة المستخدمين</button>
+          <button class="btn" onclick="switchHSTab('active')" id="hs-tab-active" style="background:var(--card);border-color:var(--border);color:var(--muted)">🟢 الجلسات النشطة</button>
+        </div>
+
+        <div class="full-table-wrap">
+          <table class="data-table" id="hotspotTable">
+            <thead>
+              <tr>
+                <th>الاسم</th><th>البروفايل</th><th>حد الوقت</th>
+                <th>حد البيانات</th><th>تعليق</th><th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="hotspotBody"><tr><td colspan="6"><div class="loading-spinner"><div class="spin"></div></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===== QUEUES PAGE ===== -->
+      <div class="page" id="page-queues">
+        <div class="page-header">
+          <div class="page-title">⚡ إدارة Simple Queues</div>
+          <div style="display:flex;gap:10px">
+            <div class="search-box">🔍<input id="qSearch" placeholder="بحث..." oninput="filterTable('queuesTable',this.value)"></div>
+            <button class="btn btn-primary" onclick="openModal('addQueueModal')">➕ إضافة Queue</button>
+          </div>
+        </div>
+        <div class="full-table-wrap">
+          <table class="data-table" id="queuesTable">
+            <thead><tr><th>الاسم</th><th>الهدف (Target)</th><th>الحد الأقصى</th><th>معدل الرفع</th><th>معدل التحميل</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+            <tbody id="queuesBody"><tr><td colspan="7"><div class="loading-spinner"><div class="spin"></div></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===== INTERFACES PAGE ===== -->
+      <div class="page" id="page-interfaces">
+        <div class="page-header">
+          <div class="page-title">🔗 الواجهات الشبكية</div>
+          <button class="btn btn-primary" onclick="loadInterfaces()">🔄 تحديث</button>
+        </div>
+        <div class="full-table-wrap">
+          <table class="data-table" id="ifacesTable">
+            <thead><tr><th>الاسم</th><th>النوع</th><th>MAC</th><th>MTU</th><th>الحالة</th><th>الرفع</th><th>التحميل</th></tr></thead>
+            <tbody id="ifacesBody"><tr><td colspan="7"><div class="loading-spinner"><div class="spin"></div></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===== IP POOLS PAGE ===== -->
+      <div class="page" id="page-ippools">
+        <div class="page-header">
+          <div class="page-title">🌐 IP Pools</div>
+          <button class="btn btn-primary" onclick="loadIPPools()">🔄 تحديث</button>
+        </div>
+        <div class="full-table-wrap">
+          <table class="data-table" id="ipPoolsTable">
+            <thead><tr><th>اسم Pool</th><th>النطاق (Ranges)</th><th>IPs المستخدمة</th></tr></thead>
+            <tbody id="ipPoolsBody"><tr><td colspan="3"><div class="loading-spinner"><div class="spin"></div></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===== FIREWALL PAGE ===== -->
+      <div class="page" id="page-firewall">
+        <div class="page-header">
+          <div class="page-title">🛡️ قواعد Firewall</div>
+          <button class="btn btn-primary" onclick="loadFirewall()">🔄 تحديث</button>
+        </div>
+
+        <div class="section-title">🔰 Filter Rules</div>
+        <div class="full-table-wrap" style="margin-bottom:20px">
+          <table class="data-table">
+            <thead><tr><th>#</th><th>Chain</th><th>Action</th><th>Src.Address</th><th>Dst.Address</th><th>Protocol</th><th>الحالة</th></tr></thead>
+            <tbody id="firewallFilterBody"></tbody>
+          </table>
+        </div>
+
+        <div class="section-title">🔀 NAT Rules</div>
+        <div class="full-table-wrap">
+          <table class="data-table">
+            <thead><tr><th>#</th><th>Chain</th><th>Action</th><th>Src.Address</th><th>Dst.Address</th><th>Out Interface</th><th>الحالة</th></tr></thead>
+            <tbody id="firewallNatBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===== LOGS PAGE ===== -->
+      <div class="page" id="page-logs">
+        <div class="page-header">
+          <div class="page-title">📋 سجل الأنشطة</div>
+          <button class="btn btn-primary" onclick="loadLogs()">🔄 تحديث</button>
+        </div>
+        <div class="full-table-wrap">
+          <table class="data-table">
+            <thead><tr><th>الوقت</th><th>المستخدم</th><th>الإجراء</th><th>التفاصيل</th><th>IP</th></tr></thead>
+            <tbody id="logsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- Add Device Modal -->
+<div class="modal-overlay" id="deviceModal">
+  <div class="modal">
+    <div class="modal-title">🖥️ إضافة جهاز MikroTik</div>
+    <div class="form-row"><label>اسم الجهاز *</label><input id="d-name" placeholder="مثال: Router-Main"></div>
+    <div class="form-row"><label>عنوان IP أو Hostname *</label><input id="d-host" placeholder="192.168.1.1" dir="ltr"></div>
+    <div class="form-row"><label>المنفذ (Port)</label><input id="d-port" value="8728" type="number" dir="ltr"></div>
+    <div class="form-row"><label>اسم المستخدم *</label><input id="d-user" placeholder="admin" dir="ltr"></div>
+    <div class="form-row"><label>كلمة المرور *</label><input id="d-pass" type="password" placeholder="كلمة مرور MikroTik" dir="ltr"></div>
+    <div class="form-row"><label>وصف (اختياري)</label><input id="d-desc" placeholder="وصف الجهاز"></div>
+    <div id="test-result" style="padding:10px;border-radius:8px;margin-top:8px;display:none;font-size:13px"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('deviceModal')" style="background:var(--card);border-color:var(--border);color:var(--muted)">إلغاء</button>
+      <button class="btn btn-success" onclick="testDeviceConn()">🔍 اختبار</button>
+      <button class="btn btn-primary" onclick="saveDevice()">💾 حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add PPPoE Modal -->
+<div class="modal-overlay" id="addPPPoEModal">
+  <div class="modal">
+    <div class="modal-title">👥 إضافة مستخدم PPPoE</div>
+    <div class="form-row"><label>اسم المستخدم *</label><input id="pp-name" placeholder="user1" dir="ltr"></div>
+    <div class="form-row"><label>كلمة المرور *</label><input id="pp-pass" type="password" dir="ltr"></div>
+    <div class="form-row"><label>البروفايل</label><select id="pp-profile"><option value="">default</option></select></div>
+    <div class="form-row"><label>نوع الخدمة</label>
+      <select id="pp-service">
+        <option value="pppoe">PPPoE</option>
+        <option value="pptp">PPTP</option>
+        <option value="l2tp">L2TP</option>
+        <option value="any">Any</option>
+      </select>
+    </div>
+    <div class="form-row"><label>تعليق</label><input id="pp-comment" placeholder="اختياري"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('addPPPoEModal')" style="background:var(--card);border-color:var(--border);color:var(--muted)">إلغاء</button>
+      <button class="btn btn-primary" onclick="addPPPoEUser()">➕ إضافة</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Hotspot Modal -->
+<div class="modal-overlay" id="addHotspotModal">
+  <div class="modal">
+    <div class="modal-title">📶 إضافة مستخدم Hotspot</div>
+    <div class="form-row"><label>اسم المستخدم *</label><input id="hs-name" placeholder="user1" dir="ltr"></div>
+    <div class="form-row"><label>كلمة المرور *</label><input id="hs-pass" type="password" dir="ltr"></div>
+    <div class="form-row"><label>البروفايل</label><select id="hs-profile"><option value="">default</option></select></div>
+    <div class="form-row"><label>حد الوقت (مثال: 1d, 2h)</label><input id="hs-uptime" placeholder="غير محدود" dir="ltr"></div>
+    <div class="form-row"><label>حد البيانات (bytes)</label><input id="hs-bytes" placeholder="غير محدود" type="number" dir="ltr"></div>
+    <div class="form-row"><label>تعليق</label><input id="hs-comment" placeholder="اختياري"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('addHotspotModal')" style="background:var(--card);border-color:var(--border);color:var(--muted)">إلغاء</button>
+      <button class="btn btn-primary" onclick="addHotspotUser()">➕ إضافة</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Queue Modal -->
+<div class="modal-overlay" id="addQueueModal">
+  <div class="modal">
+    <div class="modal-title">⚡ إضافة Simple Queue</div>
+    <div class="form-row"><label>الاسم *</label><input id="q-name" placeholder="Queue-Client1" dir="ltr"></div>
+    <div class="form-row"><label>الهدف (Target IP) *</label><input id="q-target" placeholder="192.168.1.10/32" dir="ltr"></div>
+    <div class="form-row"><label>الحد الأقصى (Max-Limit) *</label><input id="q-limit" placeholder="10M/10M" dir="ltr"></div>
+    <div class="form-row"><label>تعليق</label><input id="q-comment" placeholder="اختياري"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('addQueueModal')" style="background:var(--card);border-color:var(--border);color:var(--muted)">إلغاء</button>
+      <button class="btn btn-primary" onclick="addQueue()">➕ إضافة</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// GLOBALS
+// ============================================================
+let token = localStorage.getItem('mt_token');
+let currentUser = JSON.parse(localStorage.getItem('mt_user') || '{}');
+let selectedDevice = null;
+let socket = null;
+let trafficHistory = Array(20).fill(0);
+let pppoeData = { secrets: [], active: [] };
+let hotspotData = { users: [], active: [] };
+let currentPPPoETab = 'secrets';
+let currentHSTab = 'users';
+
+// Auth check
+if (!token) { window.location.href = '/'; }
+document.getElementById('userName').textContent = currentUser.username || 'admin';
+
+// ============================================================
+// API HELPER
+// ============================================================
+async function api(method, path, body) {
+  const opts = {
+    method,
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch('/api' + path, opts);
+  if (res.status === 401) { logout(); return; }
+  return res.json();
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function toast(msg, type = 'info') {
+  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  const div = document.createElement('div');
+  div.className = `toast ${type}`;
+  div.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`;
+  document.getElementById('toastContainer').appendChild(div);
+  setTimeout(() => div.remove(), 4000);
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+
+  const titles = {
+    dashboard: 'لوحة التحكم', devices: 'الأجهزة', pppoe: 'مستخدمو PPPoE',
+    hotspot: 'مستخدمو Hotspot', queues: 'إدارة Queue', interfaces: 'الواجهات الشبكية',
+    ippools: 'IP Pools', firewall: 'Firewall Rules', logs: 'سجل الأنشطة'
+  };
+  document.getElementById('pageTitle').textContent = titles[name] || name;
+
+  // Load data on page switch
+  if (!selectedDevice && name !== 'devices') {
+    if (name !== 'dashboard' && name !== 'logs') {
+      toast('الرجاء اختيار جهاز أولاً من القائمة الجانبية', 'info');
+    }
+  }
+  if (name === 'pppoe' && selectedDevice) loadPPPoE();
+  if (name === 'hotspot' && selectedDevice) loadHotspot();
+  if (name === 'queues' && selectedDevice) loadQueues();
+  if (name === 'interfaces' && selectedDevice) loadInterfaces();
+  if (name === 'ippools' && selectedDevice) loadIPPools();
+  if (name === 'firewall' && selectedDevice) loadFirewall();
+  if (name === 'logs') loadLogs();
+  if (name === 'devices') loadDevices();
+}
+
+// ============================================================
+// MODAL
+// ============================================================
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  // Load profiles for PPPoE
+  if (id === 'addPPPoEModal' && selectedDevice) loadPPPoEProfiles();
+  if (id === 'addHotspotModal' && selectedDevice) loadHSProfiles();
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// ============================================================
+// DEVICES
+// ============================================================
+async function loadDevices() {
+  const data = await api('GET', '/devices');
+  if (!data?.success) return;
+  
+  document.getElementById('badge-devices').textContent = data.devices.length;
+  const grid = document.getElementById('devicesGrid');
+
+  if (!data.devices.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🖥️</div><div class="empty-text">لا توجد أجهزة. أضف جهازاً للبدء</div></div>`;
+    return;
+  }
+
+  grid.innerHTML = data.devices.map(d => `
+    <div class="device-card ${selectedDevice?.id == d.id ? 'selected' : ''}" id="dc-${d.id}">
+      <div class="dc-header">
+        <div class="dc-icon">🔌</div>
+        <div>
+          <div class="dc-name">${d.name}</div>
+          <div class="dc-host">${d.host}:${d.port}</div>
+        </div>
+        <span class="badge ${d.status === 'online' ? 'badge-green' : 'badge-red'}" style="margin-right:auto">
+          ${d.status === 'online' ? '🟢 متصل' : '🔴 غير متصل'}
+        </span>
+      </div>
+      <div class="dc-stats">
+        <div class="dc-stat"><div class="dc-stat-label">الموديل</div><div class="dc-stat-val" style="font-size:12px">${d.model || '---'}</div></div>
+        <div class="dc-stat"><div class="dc-stat-label">الإصدار</div><div class="dc-stat-val" style="font-size:12px">${d.version || '---'}</div></div>
+      </div>
+      <div class="dc-actions">
+        <button class="btn btn-primary btn-sm" onclick="selectDevice('${d.id}')">📊 تحكم</button>
+        <button class="btn btn-success btn-sm" onclick="testDeviceId(${d.id},'${d.host}',${d.port},'${d.username}')">🔍 اختبار</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteDevice(${d.id})">🗑️</button>
+      </div>
+    </div>
+  `).join('');
+
+  // Populate select
+  const sel = document.getElementById('deviceSelect');
+  sel.innerHTML = '<option value="">-- اختر جهازاً --</option>' +
+    data.devices.map(d => `<option value="${d.id}" ${selectedDevice?.id == d.id ? 'selected':''}>
+      ${d.status === 'online' ? '🟢' : '🔴'} ${d.name} (${d.host})
+    </option>`).join('');
+}
+
+async function selectDevice(id) {
+  if (!id) { selectedDevice = null; updateStatus(false); return; }
+  const data = await api('GET', '/devices');
+  selectedDevice = data.devices.find(d => d.id == id);
+  if (!selectedDevice) return;
+
+  document.getElementById('deviceName').textContent = selectedDevice.name + ' — ' + selectedDevice.host;
+  document.getElementById('deviceSelect').value = id;
+
+  // Highlight card
+  document.querySelectorAll('.device-card').forEach(c => c.classList.remove('selected'));
+  const card = document.getElementById('dc-' + id);
+  if (card) card.classList.add('selected');
+
+  // Connect socket
+  connectSocket();
+  // Load dashboard data
+  loadSystemInfo();
+  loadInterfacesPanel();
+
+  showPage('dashboard');
+  toast(`تم الاتصال بـ ${selectedDevice.name}`, 'success');
+}
+
+async function testDeviceId(id, host, port, user) {
+  toast('جاري اختبار الاتصال...', 'info');
+  const device = (await api('GET', '/devices')).devices.find(d => d.id == id);
+  if (!device) return;
+  const res = await api('POST', '/devices/test', { host, port, username: device.username, password: device.password });
+  if (res?.success) toast(`✅ اتصال ناجح - ${res.identity} (${res.model})`, 'success');
+  else toast('❌ فشل الاتصال: ' + (res?.error || 'خطأ'), 'error');
+}
+
+async function testDeviceConn() {
+  const host = document.getElementById('d-host').value;
+  const port = document.getElementById('d-port').value || 8728;
+  const user = document.getElementById('d-user').value;
+  const pass = document.getElementById('d-pass').value;
+  if (!host || !user || !pass) { toast('أدخل بيانات الاتصال أولاً', 'error'); return; }
+
+  const result = document.getElementById('test-result');
+  result.style.display = 'block';
+  result.style.background = 'rgba(245,158,11,0.1)';
+  result.style.border = '1px solid rgba(245,158,11,0.3)';
+  result.style.color = '#f59e0b';
+  result.textContent = '⏳ جاري الاختبار...';
+
+  const res = await api('POST', '/devices/test', { host, port: parseInt(port), username: user, password: pass });
+  if (res?.success) {
+    result.style.background = 'rgba(16,185,129,0.1)';
+    result.style.border = '1px solid rgba(16,185,129,0.3)';
+    result.style.color = '#10b981';
+    result.textContent = `✅ اتصال ناجح! ${res.identity} | ${res.model || ''} | RouterOS ${res.version || ''}`;
+  } else {
+    result.style.background = 'rgba(239,68,68,0.1)';
+    result.style.border = '1px solid rgba(239,68,68,0.3)';
+    result.style.color = '#ef4444';
+    result.textContent = '❌ فشل الاتصال: ' + (res?.error || 'تحقق من البيانات والمنفذ');
+  }
+}
+
+async function saveDevice() {
+  const body = {
+    name: document.getElementById('d-name').value,
+    host: document.getElementById('d-host').value,
+    port: parseInt(document.getElementById('d-port').value) || 8728,
+    username: document.getElementById('d-user').value,
+    password: document.getElementById('d-pass').value,
+    description: document.getElementById('d-desc').value
+  };
+  if (!body.name || !body.host || !body.username || !body.password) {
+    toast('الحقول المطلوبة: الاسم، IP، المستخدم، كلمة المرور', 'error'); return;
+  }
+  const res = await api('POST', '/devices', body);
+  if (res?.success) {
+    toast(res.message, 'success');
+    closeModal('deviceModal');
+    loadDevices();
+    ['d-name','d-host','d-pass','d-desc'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('test-result').style.display = 'none';
+  } else {
+    toast(res?.message || 'خطأ في الحفظ', 'error');
+  }
+}
+
+async function deleteDevice(id) {
+  if (!confirm('هل أنت متأكد من حذف هذا الجهاز؟')) return;
+  const res = await api('DELETE', `/devices/${id}`);
+  if (res?.success) { toast('تم حذف الجهاز', 'success'); loadDevices(); }
+  else toast(res?.message || 'خطأ', 'error');
+}
+
+// ============================================================
+// SOCKET.IO
+// ============================================================
+function connectSocket() {
+  if (socket) socket.disconnect();
+  socket = io({ auth: { token } });
+  socket.on('connect', () => {
+    if (selectedDevice) socket.emit('watch:device', selectedDevice.id);
+  });
+  socket.on('device:stats', (data) => {
+    updateStatus(data.status === 'online');
+    if (data.status === 'online') {
+      document.getElementById('stat-cpu').textContent = data.cpu + '%';
+      document.getElementById('prog-cpu').style.width = data.cpu + '%';
+      document.getElementById('prog-cpu').style.background = data.cpu > 80 ? 'linear-gradient(90deg,#ef4444,#f59e0b)' : 'linear-gradient(90deg,var(--primary),var(--secondary))';
+
+      const ramPct = Math.round(((data.totalMemory - data.freeMemory) / data.totalMemory) * 100);
+      document.getElementById('stat-ram').textContent = ramPct + '%';
+      document.getElementById('prog-ram').style.width = ramPct + '%';
+
+      document.getElementById('stat-pppoe').textContent = data.pppoeActive;
+      document.getElementById('stat-hotspot').textContent = data.hotspotActive;
+      document.getElementById('badge-pppoe').textContent = data.pppoeActive;
+      document.getElementById('badge-hotspot').textContent = data.hotspotActive;
+    }
+  });
+  socket.on('disconnect', () => updateStatus(false));
+}
+
+function updateStatus(online) {
+  const pill = document.getElementById('statusPill');
+  const text = document.getElementById('statusText');
+  pill.className = 'status-pill ' + (online ? 'online' : 'offline');
+  text.textContent = online ? 'متصل' : 'غير متصل';
+}
+
+// ============================================================
+// SYSTEM INFO
+// ============================================================
+async function loadSystemInfo() {
+  if (!selectedDevice) return;
+  const panel = document.getElementById('systemInfoPanel');
+  panel.innerHTML = '<div class="loading-spinner"><div class="spin"></div> جاري التحميل...</div>';
+  const data = await api('GET', `/mt/${selectedDevice.id}/system`);
+  if (!data?.success) {
+    panel.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">تعذر الاتصال: ${data?.message || 'خطأ'}</div></div>`;
+    return;
+  }
+  const d = data.data;
+  const rows = [
+    ['🏷️ الهوية', d.identity],
+    ['📦 الموديل', d.model],
+    ['🔢 الإصدار', d.version],
+    ['🏗️ المعمارية', d.architecture],
+    ['🧠 المعالج', d.cpuCount + ' Core, ' + d.cpu + '% استخدام'],
+    ['💾 الذاكرة', formatBytes(d.totalMemory - d.freeMemory) + ' / ' + formatBytes(d.totalMemory)],
+    ['💿 القرص', formatBytes(d.totalHdd - d.freeHdd) + ' / ' + formatBytes(d.totalHdd)],
+    ['⏱️ وقت التشغيل', d.uptime],
+    ['🔑 السيريال', d.serial || '---'],
+    ['💾 الفيرموير', d.firmware || '---'],
+  ];
+  panel.innerHTML = `<table class="data-table">${rows.map(([k,v]) => `<tr><td style="color:var(--muted);width:45%">${k}</td><td style="font-weight:700">${v || '---'}</td></tr>`).join('')}</table>`;
+}
+
+async function loadInterfacesPanel() {
+  if (!selectedDevice) return;
+  const panel = document.getElementById('ifacePanel');
+  const data = await api('GET', `/mt/${selectedDevice.id}/interfaces`);
+  if (!data?.success) return;
+
+  document.getElementById('iface-count').textContent = data.data.length + ' واجهة';
+  panel.innerHTML = data.data.slice(0, 10).map(i => `
+    <div class="iface-item">
+      <div class="iface-dot" style="background:${i.running === 'true' ? 'var(--accent)' : 'var(--muted)'}"></div>
+      <div>
+        <div class="iface-name">${i.name}</div>
+        <div class="iface-type">${i.type || 'ether'} • ${i['mac-address'] || ''}</div>
+      </div>
+      <span class="badge ${i.running === 'true' ? 'badge-green' : 'badge-red'}" style="margin-right:auto">
+        ${i.running === 'true' ? 'نشط' : 'متوقف'}
+      </span>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// PPPOE
+// ============================================================
+async function loadPPPoE() {
+  if (!selectedDevice) { toast('اختر جهازاً أولاً', 'info'); return; }
+  document.getElementById('pppoeBody').innerHTML = '<tr><td colspan="7"><div class="loading-spinner"><div class="spin"></div></div></td></tr>';
+  const data = await api('GET', `/mt/${selectedDevice.id}/pppoe`);
+  if (!data?.success) { toast(data?.message || 'خطأ', 'error'); return; }
+  pppoeData = data.data;
+  renderPPPoE();
+}
+
+function switchPPPoETab(tab) {
+  currentPPPoETab = tab;
+  const s = document.getElementById('tab-secrets');
+  const a = document.getElementById('tab-active');
+  if (tab === 'secrets') {
+    s.className = 'btn btn-primary';
+    a.className = 'btn';
+    a.style = 'background:var(--card);border-color:var(--border);color:var(--muted)';
+  } else {
+    a.className = 'btn btn-primary';
+    a.style = '';
+    s.className = 'btn';
+    s.style = 'background:var(--card);border-color:var(--border);color:var(--muted)';
+  }
+  renderPPPoE();
+}
+
+function renderPPPoE() {
+  const tbody = document.getElementById('pppoeBody');
+  if (currentPPPoETab === 'secrets') {
+    const rows = pppoeData.secrets;
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">لا يوجد مستخدمون</div></div></td></tr>`; return; }
+    tbody.innerHTML = rows.map(u => `
+      <tr>
+        <td><b>${u.name}</b></td>
+        <td>${u.profile || 'default'}</td>
+        <td><span class="badge badge-blue">${u.service || 'pppoe'}</span></td>
+        <td><span class="badge ${u.disabled === 'true' ? 'badge-red' : 'badge-green'}">${u.disabled === 'true' ? '🔴 معطل' : '🟢 نشط'}</span></td>
+        <td><code style="font-size:11px;color:var(--primary)">${u['last-caller'] || '---'}</code></td>
+        <td>${u.comment || '---'}</td>
+        <td>
+          <div style="display:flex;gap:4px">
+            <button class="btn btn-sm ${u.disabled === 'true' ? 'btn-success' : 'btn-danger'} btn-icon" 
+              onclick="togglePPPoE('${u['.id']}',${u.disabled === 'true' ? 'false' : 'true'})"
+              title="${u.disabled === 'true' ? 'تفعيل' : 'تعطيل'}">
+              ${u.disabled === 'true' ? '✅' : '🚫'}
+            </button>
+            <button class="btn btn-danger btn-sm btn-icon" onclick="deletePPPoE('${u['.id']}')" title="حذف">🗑️</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  } else {
+    const rows = pppoeData.active;
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📡</div><div class="empty-text">لا توجد جلسات نشطة</div></div></td></tr>`; return; }
+    tbody.innerHTML = rows.map(s => `
+      <tr>
+        <td><b>${s.name}</b></td>
+        <td>${s.service || 'pppoe'}</td>
+        <td>${s.uptime || '---'}</td>
+        <td><span class="badge badge-green">🟢 متصل</span></td>
+        <td><code style="color:var(--primary);font-size:11px">${s.address || '---'}</code></td>
+        <td>${s.caller || s['caller-id'] || '---'}</td>
+        <td>
+          <button class="btn btn-danger btn-sm" onclick="disconnectPPPoE('${s['.id']}')">قطع</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+}
+
+async function addPPPoEUser() {
+  const body = {
+    name: document.getElementById('pp-name').value,
+    password: document.getElementById('pp-pass').value,
+    profile: document.getElementById('pp-profile').value,
+    service: document.getElementById('pp-service').value,
+    comment: document.getElementById('pp-comment').value,
+  };
+  if (!body.name || !body.password) { toast('الاسم وكلمة المرور مطلوبان', 'error'); return; }
+  const res = await api('POST', `/mt/${selectedDevice.id}/pppoe`, body);
+  if (res?.success) {
+    toast(res.message, 'success');
+    closeModal('addPPPoEModal');
+    loadPPPoE();
+    ['pp-name','pp-pass','pp-comment'].forEach(id => document.getElementById(id).value = '');
+  } else toast(res?.message || 'خطأ', 'error');
+}
+
+async function deletePPPoE(id) {
+  if (!confirm('حذف المستخدم؟')) return;
+  const res = await api('DELETE', `/mt/${selectedDevice.id}/pppoe/${encodeURIComponent(id)}`);
+  if (res?.success) { toast(res.message, 'success'); loadPPPoE(); }
+  else toast(res?.message || 'خطأ', 'error');
+}
+
+async function togglePPPoE(id, disable) {
+  const res = await api('PATCH', `/mt/${selectedDevice.id}/pppoe/${encodeURIComponent(id)}/toggle`, { disabled: disable });
+  if (res?.success) { toast(res.message, 'success'); loadPPPoE(); }
+  else toast(res?.message || 'خطأ', 'error');
+}
+
+async function disconnectPPPoE(id) {
+  if (!confirm('قطع الاتصال؟')) return;
+  const res = await api('DELETE', `/mt/${selectedDevice.id}/pppoe/active/${encodeURIComponent(id)}`);
+  if (res?.success) { toast(res.message, 'success'); loadPPPoE(); }
+  else toast(res?.message || 'خطأ', 'error');
+}
+
+async function loadPPPoEProfiles() {
+  const res = await api('GET', `/mt/${selectedDevice.id}/pppoe/profiles`);
+  if (!res?.success) return;
+  const sel = document.getElementById('pp-profile');
+  sel.innerHTML = res.data.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+}
+
+// ============================================================
+// HOTSPOT
+// ============================================================
+async function loadHotspot() {
+  if (!selectedDevice) { toast('اختر جهازاً أولاً', 'info'); return; }
+  document.getElementById('hotspotBody').innerHTML = '<tr><td colspan="6"><div class="loading-spinner"><div class="spin"></div></div></td></tr>';
+  const data = await api('GET', `/mt/${selectedDevice.id}/hotspot`);
+  if (!data?.success) { toast(data?.message || 'خطأ', 'error'); return; }
+  hotspotData = data.data;
+  renderHotspot();
+}
+
+function switchHSTab(tab) {
+  currentHSTab = tab;
+  const u = document.getElementById('hs-tab-users');
+  const a = document.getElementById('hs-tab-active');
+  if (tab === 'users') {
+    u.className = 'btn btn-primary'; u.style = '';
+    a.className = 'btn'; a.style = 'background:var(--card);border-color:var(--border);color:var(--muted)';
+  } else {
+    a.className = 'btn btn-primary'; a.style = '';
+    u.className = 'btn'; u.style = 'background:var(--card);border-color:var(--border);color:var(--muted)';
+  }
+  renderHotspot();
+}
+
+function renderHotspot() {
+  const tbody = document.getElementById('hotspotBody');
+  if (currentHSTab === 'users') {
+    const rows = hotspotData.users || [];
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📶</div><div class="empty-text">لا يوجد مستخدمون</div></div></td></tr>`; return; }
+    tbody.innerHTML = rows.map(u => `
+      <tr>
+        <td><b>${u.name}</b></td>
+        <td>${u.profile || 'default'}</td>
+        <td>${u['limit-uptime'] || '♾️ غير محدود'}</td>
+        <td>${u['limit-bytes-total'] ? formatBytes(parseInt(u['limit-bytes-total'])) : '♾️ غير محدود'}</td>
+        <td>${u.comment || '---'}</td>
+        <td>
+          <button class="btn btn-danger btn-sm btn-icon" onclick="deleteHotspot('${u['.id']}')" title="حذف">🗑️</button>
+        </td>
+      </tr>
+    `).join('');
+  } else {
+    const rows = hotspotData.active || [];
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📡</div><div class="empty-text">لا توجد جلسات نشطة</div></div></td></tr>`; return; }
+    tbody.innerHTML = rows.map(s => `
+      <tr>
+        <td><b>${s.user}</b></td>
+        <td>${s.uptime || '---'}</td>
+        <td><code style="color:var(--primary);font-size:11px">${s.address || '---'}</code></td>
+        <td>${s['mac-address'] || '---'}</td>
+        <td><span class="badge badge-green">🟢 متصل</span></td>
+        <td><button class="btn btn-danger btn-sm" onclick="toast('قطع الاتصال...','info')">قطع</button></td>
+      </tr>
+    `).join('');
+  }
+}
+
+async function addHotspotUser() {
+  const body = {
+    name: document.getElementById('hs-name').value,
+    password: document.getElementById('hs-pass').value,
+    profile: document.getElementById('hs-profile').value,
+    limitUptime: document.getElementById('hs-uptime').value,
+    limitBytes: document.getElementById('hs-bytes').value,
+    comment: document.getElementById('hs-comment').value,
+  };
+  if (!body.name || !body.password) { toast('الاسم وكلمة المرور مطلوبان', 'error'); return; }
+  const res = await api('POST', `/mt/${selectedDevice.id}/hotspot`, body);
+  if (res?.success) {
+    toast(res.message, 'success');
+    closeModal('addHotspotModal');
+    loadHotspot();
+  } else toast(res?.message || 'خطأ', 'error');
+}
+
+async function deleteHotspot(id) {
+  if (!confirm('حذف المستخدم؟')) return;
+  const res = await api('DELETE', `/mt/${selectedDevice.id}/hotspot/${encodeURIComponent(id)}`);
+  if (res?.success) { toast(res.message, 'success'); loadHotspot(); }
+  else toast(res?.message || 'خطأ', 'error');
+}
+
+async function loadHSProfiles() {
+  const res = await api('GET', `/mt/${selectedDevice.id}/hotspot`);
+  // minimal, just load
+}
+
+// ============================================================
+// QUEUES
+// ============================================================
+async function loadQueues() {
+  if (!selectedDevice) return;
+  document.getElementById('queuesBody').innerHTML = '<tr><td colspan="7"><div class="loading-spinner"><div class="spin"></div></div></td></tr>';
+  const data = await api('GET', `/mt/${selectedDevice.id}/queues`);
+  if (!data?.success) { toast(data?.message || 'خطأ', 'error'); return; }
+  const tbody = document.getElementById('queuesBody');
+  if (!data.data.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">⚡</div><div class="empty-text">لا يوجد Queues</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.data.map(q => {
+    const [up, down] = (q['max-limit'] || '0/0').split('/');
+    return `
+      <tr>
+        <td><b>${q.name}</b></td>
+        <td><code style="font-size:11px;color:var(--primary)">${q.target || '---'}</code></td>
+        <td><span class="badge badge-blue">${q['max-limit'] || '---'}</span></td>
+        <td style="color:#10b981">⬆ ${up}</td>
+        <td style="color:#7c3aed">⬇ ${down}</td>
+        <td><span class="badge ${q.disabled === 'true' ? 'badge-red' : 'badge-green'}">${q.disabled === 'true' ? 'معطل' : 'نشط'}</span></td>
+        <td>
+          <div style="display:flex;gap:4px">
+            <button class="btn btn-primary btn-sm" onclick="promptSetLimit('${q['.id']}','${q['max-limit']||''}')">✏️</button>
+            <button class="btn btn-danger btn-sm btn-icon" onclick="deleteQueue('${q['.id']}')">🗑️</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function addQueue() {
+  const body = {
+    name: document.getElementById('q-name').value,
+    target: document.getElementById('q-target').value,
+    maxLimit: document.getElementById('q-limit').value,
+    comment: document.getElementById('q-comment').value,
+  };
+  if (!body.name || !body.target || !body.maxLimit) { toast('الحقول المطلوبة ناقصة', 'error'); return; }
+  const res = await api('POST', `/mt/${selectedDevice.id}/queues`, body);
+  if (res?.success) { toast(res.message, 'success'); closeModal('addQueueModal'); loadQueues(); }
+  else toast(res?.message || 'خطأ', 'error');
+}
+
+async function deleteQueue(id) {
+  if (!confirm('حذف Queue؟')) return;
+  const res = await api('DELETE', `/mt/${selectedDevice.id}/queues/${encodeURIComponent(id)}`);
+  if (res?.success) { toast(res.message, 'success'); loadQueues(); }
+  else toast(res?.message || 'خطأ', 'error');
+}
+
+async function promptSetLimit(id, current) {
+  const val = prompt(`الحد الحالي: ${current}\nأدخل الحد الجديد (مثال: 20M/20M):`, current);
+  if (!val) return;
+  const res = await api('PATCH', `/mt/${selectedDevice.id}/queues/${encodeURIComponent(id)}/limit`, { maxLimit: val });
+  if (res?.success) { toast(res.message, 'success'); loadQueues(); }
+  else toast(res?.message || 'خطأ', 'error');
+}
+
+// ============================================================
+// INTERFACES
+// ============================================================
+async function loadInterfaces() {
+  if (!selectedDevice) return;
+  const data = await api('GET', `/mt/${selectedDevice.id}/interfaces`);
+  if (!data?.success) return;
+  const tbody = document.getElementById('ifacesBody');
+  tbody.innerHTML = data.data.map(i => `
+    <tr>
+      <td><b>${i.name}</b></td>
+      <td><span class="badge badge-purple">${i.type || 'ether'}</span></td>
+      <td><code style="font-size:11px">${i['mac-address'] || '---'}</code></td>
+      <td>${i.mtu || '---'}</td>
+      <td><span class="badge ${i.running === 'true' ? 'badge-green' : 'badge-red'}">${i.running === 'true' ? '🟢 نشط' : '🔴 متوقف'}</span></td>
+      <td style="color:#10b981">${i['tx-byte'] ? formatBytes(parseInt(i['tx-byte'])) : '---'}</td>
+      <td style="color:#7c3aed">${i['rx-byte'] ? formatBytes(parseInt(i['rx-byte'])) : '---'}</td>
+    </tr>
+  `).join('');
+}
+
+// ============================================================
+// IP POOLS
+// ============================================================
+async function loadIPPools() {
+  if (!selectedDevice) return;
+  const data = await api('GET', `/mt/${selectedDevice.id}/ippools`);
+  if (!data?.success) return;
+  const tbody = document.getElementById('ipPoolsBody');
+  if (!data.data.pools.length) {
+    tbody.innerHTML = `<tr><td colspan="3"><div class="empty-state"><div class="empty-icon">🌐</div><div class="empty-text">لا يوجد IP Pools</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.data.pools.map(p => {
+    const usedCount = data.data.used.filter(u => u.pool === p.name).length;
+    return `
+      <tr>
+        <td><b>${p.name}</b></td>
+        <td><code style="font-size:12px;color:var(--primary)">${p.ranges || '---'}</code></td>
+        <td><span class="badge badge-yellow">${usedCount} مستخدم</span></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// ============================================================
+// FIREWALL
+// ============================================================
+async function loadFirewall() {
+  if (!selectedDevice) return;
+  const data = await api('GET', `/mt/${selectedDevice.id}/firewall`);
+  if (!data?.success) return;
+
+  const renderRows = (rules, cols) => rules.map((r, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      ${cols.map(c => `<td>${r[c] || '---'}</td>`).join('')}
+      <td><span class="badge ${r.disabled === 'true' ? 'badge-red' : 'badge-green'}">${r.disabled === 'true' ? 'معطل' : 'نشط'}</span></td>
+    </tr>
+  `).join('') || `<tr><td colspan="${cols.length + 2}"><div class="empty-state"><div class="empty-icon">🛡️</div><div class="empty-text">لا توجد قواعد</div></div></td></tr>`;
+
+  document.getElementById('firewallFilterBody').innerHTML = renderRows(data.data.filter, ['chain','action','src-address','dst-address','protocol']);
+  document.getElementById('firewallNatBody').innerHTML = renderRows(data.data.nat, ['chain','action','src-address','dst-address','out-interface']);
+}
+
+// ============================================================
+// LOGS
+// ============================================================
+async function loadLogs() {
+  const data = await api('GET', '/mt/logs');
+  if (!data?.success) return;
+  const tbody = document.getElementById('logsBody');
+  if (!data.data.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">لا توجد أنشطة</div></div></td></tr>`;
+    return;
+  }
+  const actionLabels = {
+    'add_device': 'إضافة جهاز', 'delete_device': 'حذف جهاز',
+    'add_pppoe': 'إضافة PPPoE', 'add_hotspot': 'إضافة Hotspot'
+  };
+  tbody.innerHTML = data.data.map(l => `
+    <tr>
+      <td style="color:var(--muted);font-size:12px">${new Date(l.created_at).toLocaleString('ar')}</td>
+      <td><span class="badge badge-blue">${l.username || 'system'}</span></td>
+      <td><span class="badge badge-purple">${actionLabels[l.action] || l.action}</span></td>
+      <td>${l.details || '---'}</td>
+      <td><code style="font-size:11px">${l.ip || '---'}</code></td>
+    </tr>
+  `).join('');
+}
+
+// ============================================================
+// SEARCH / FILTER
+// ============================================================
+function filterTable(tableId, query) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  const rows = table.querySelectorAll('tbody tr');
+  rows.forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(query.toLowerCase()) ? '' : 'none';
+  });
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
+}
+
+function refreshCurrent() {
+  const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
+  if (!activePage) return;
+  if (activePage === 'dashboard') { loadSystemInfo(); loadInterfacesPanel(); }
+  else showPage(activePage);
+  toast('تم التحديث', 'info');
+}
+
+function logout() {
+  if (socket) socket.disconnect();
+  localStorage.removeItem('mt_token');
+  localStorage.removeItem('mt_user');
+  window.location.href = '/';
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('DOMContentLoaded', async () => {
+  // Verify token
+  const verify = await api('GET', '/auth/verify');
+  if (!verify?.success) { logout(); return; }
+
+  // Load devices
+  await loadDevices();
+
+  // Init traffic chart bars
+  const chart = document.getElementById('trafficChart');
+  chart.innerHTML = Array(20).fill(0).map(() => `<div class="chart-bar" style="height:4px"></div>`).join('');
+});
+</script>
+</body>
+</html>
