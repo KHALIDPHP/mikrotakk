@@ -680,6 +680,26 @@
   </div>
 </div>
 
+<!-- Setup Script Modal -->
+<div class="modal-overlay" id="setupScriptModal">
+  <div class="modal" style="max-width: 600px;">
+    <div class="modal-title">⚡ كود الربط التلقائي للمايكروتك</div>
+    <p style="font-size: 13px; color: var(--muted); margin-bottom: 12px; line-height: 1.5;">
+      انسخ الكود التالي بالكامل والصقه في <b>Terminal</b> المايكروتك (System -> Terminal) في برنامج Winbox ليتم ربطه بلوحة التحكم تلقائياً وبأمان:
+    </p>
+    <div class="form-row">
+      <textarea id="setup-command-text" readonly style="width: 100%; height: 130px; background: rgba(0,0,0,0.35); border: 1px solid var(--border2); border-radius: 10px; color: var(--primary); padding: 12px; font-family: monospace; font-size: 11px; resize: none; outline: none; line-height: 1.4;" onclick="this.select()"></textarea>
+    </div>
+    <div style="font-size: 11px; color: var(--warning); margin-bottom: 20px;">
+      ⚠️ ملاحظة: الكود ينشئ مستخدم API مخصص، ويفعّل المراقبة التلقائية كل 3 ثوانٍ.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="navigator.clipboard.writeText(document.getElementById('setup-command-text').value); toast('تم نسخ الكود!', 'success')">📋 نسخ الكود</button>
+      <button class="btn" onclick="closeModal('setupScriptModal')" style="background:var(--card);border-color:var(--border);color:var(--text)">إغلاق</button>
+    </div>
+  </div>
+</div>
+
 <!-- Add PPPoE Modal -->
 <div class="modal-overlay" id="addPPPoEModal">
   <div class="modal">
@@ -858,7 +878,11 @@ async function loadDevices() {
       </div>
       <div class="dc-actions">
         <button class="btn btn-primary btn-sm" onclick="selectDevice('${d.id}')">📊 تحكم</button>
-        <button class="btn btn-success btn-sm" onclick="testDeviceId(${d.id},'${d.host}',${d.port},'${d.username}')">🔍 اختبار</button>
+        ${d.token ? `
+          <button class="btn btn-sm" style="background:var(--secondary);border-color:rgba(124,58,237,0.3);color:#fff;" onclick="showSetupCommand('${d.token}')" title="كود الربط التلقائي">⚡ كود الربط</button>
+        ` : `
+          <button class="btn btn-success btn-sm" onclick="testDeviceId(${d.id},'${d.host}',${d.port},'${d.username}')">🔍 اختبار</button>
+        `}
         <button class="btn btn-danger btn-sm" onclick="deleteDevice(${d.id})">🗑️</button>
       </div>
     </div>
@@ -933,6 +957,12 @@ async function testDeviceConn() {
   }
 }
 
+function showSetupCommand(token) {
+  const cmd = `/tool fetch url="${window.location.origin}/api/setup/script/${token}" mode=https dst-path=gr_setup.rsc; :delay 3; /import gr_setup.rsc; :do {/file remove gr_setup.rsc} on-error={}`;
+  document.getElementById('setup-command-text').value = cmd;
+  openModal('setupScriptModal');
+}
+
 async function saveDevice() {
   const body = {
     name: document.getElementById('d-name').value,
@@ -952,6 +982,12 @@ async function saveDevice() {
     loadDevices();
     ['d-name','d-host','d-pass','d-desc'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('test-result').style.display = 'none';
+
+    // If setupCommand is returned (meaning connection test failed or NAT device)
+    if (res.setupCommand) {
+      document.getElementById('setup-command-text').value = res.setupCommand;
+      openModal('setupScriptModal');
+    }
   } else {
     toast(res?.message || 'خطأ في الحفظ', 'error');
   }
@@ -990,6 +1026,41 @@ function connectSocket() {
       document.getElementById('badge-hotspot').textContent = data.hotspotActive;
     }
   });
+
+  socket.on('pppoe:updated', (payload) => {
+    if (selectedDevice && selectedDevice.id == payload.deviceId) {
+      pppoeData = payload.data;
+      if (document.querySelector('.page.active')?.id === 'pppoe') {
+        renderPPPoE();
+      }
+    }
+  });
+
+  socket.on('hotspot:updated', (payload) => {
+    if (selectedDevice && selectedDevice.id == payload.deviceId) {
+      hotspotData = payload.data;
+      if (document.querySelector('.page.active')?.id === 'hotspot') {
+        renderHotspot();
+      }
+    }
+  });
+
+  socket.on('queues:updated', (payload) => {
+    if (selectedDevice && selectedDevice.id == payload.deviceId) {
+      if (document.querySelector('.page.active')?.id === 'queues') {
+        loadQueues();
+      }
+    }
+  });
+
+  socket.on('interfaces:updated', (payload) => {
+    if (selectedDevice && selectedDevice.id == payload.deviceId) {
+      if (document.querySelector('.page.active')?.id === 'interfaces') {
+        loadInterfaces();
+      }
+    }
+  });
+
   socket.on('disconnect', () => updateStatus(false));
 }
 

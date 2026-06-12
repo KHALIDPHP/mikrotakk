@@ -105,6 +105,23 @@ async function init() {
       model TEXT,
       version TEXT,
       serial TEXT,
+      token TEXT UNIQUE,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS device_cache (
+      device_id INTEGER NOT NULL,
+      key TEXT NOT NULL,
+      value TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (device_id, key)
+    );
+
+    CREATE TABLE IF NOT EXISTS device_commands (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      device_id INTEGER NOT NULL,
+      command TEXT NOT NULL,
+      command_id TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -118,6 +135,14 @@ async function init() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  try {
+    await db.run('ALTER TABLE devices ADD COLUMN token TEXT UNIQUE');
+  } catch (err) {}
+
+  try {
+    await db.run('ALTER TABLE device_commands ADD COLUMN command_id TEXT');
+  } catch (err) {}
 
   const admin = await db.get('SELECT id FROM users WHERE username = ?', ['admin']);
   if (!admin) {

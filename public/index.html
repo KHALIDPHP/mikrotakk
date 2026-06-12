@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MikroTik SaaS - اتصال مباشر</title>
+  <title>MikroTik SaaS - تسجيل الدخول</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     :root{
@@ -22,9 +22,9 @@
     /* BACKGROUND */
     .bg{position:fixed;inset:0;z-index:0;
       background:
-        radial-gradient(ellipse at 20% 50%,rgba(124,58,237,.15) 0%,transparent 60%),
-        radial-gradient(ellipse at 80% 20%,rgba(0,212,255,.1) 0%,transparent 60%),
-        radial-gradient(ellipse at 50% 90%,rgba(16,185,129,.08) 0%,transparent 60%);
+        radial-gradient(ellipse at 20% 50%,rgba(124,58,237,.18) 0%,transparent 60%),
+        radial-gradient(ellipse at 80% 20%,rgba(0,212,255,.13) 0%,transparent 60%),
+        radial-gradient(ellipse at 50% 90%,rgba(16,185,129,.1) 0%,transparent 60%);
     }
     .grid{position:fixed;inset:0;z-index:0;
       background-image:
@@ -33,16 +33,16 @@
       background-size:50px 50px;
     }
     .particle{position:fixed;border-radius:50%;pointer-events:none;animation:float linear infinite;z-index:0}
-    @keyframes float{0%{transform:translateY(100vh) rotate(0deg);opacity:0}10%{opacity:.5}90%{opacity:.5}100%{transform:translateY(-100px) rotate(720deg);opacity:0}}
+    @keyframes float{0%{transform:translateY(100vh) rotate(0deg);opacity:0}10%{opacity:.6}90%{opacity:.6}100%{transform:translateY(-100px) rotate(720deg);opacity:0}}
 
     /* CARD */
-    .wrap{position:relative;z-index:10;width:100%;max-width:480px;padding:20px;animation:up .5s ease}
+    .wrap{position:relative;z-index:10;width:100%;max-width:440px;padding:20px;animation:up .5s ease}
     @keyframes up{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
 
     .card{
-      background:rgba(13,21,48,.92);border:1px solid var(--border);
+      background:rgba(13,21,48,.95);border:1px solid var(--border);
       border-radius:24px;padding:44px 40px;backdrop-filter:blur(20px);
-      box-shadow:0 25px 60px rgba(0,0,0,.5),0 0 30px rgba(0,212,255,.15);
+      box-shadow:0 25px 60px rgba(0,0,0,.5),0 0 40px rgba(0,212,255,.12);
       position:relative;overflow:hidden;
     }
     .card::before{
@@ -55,44 +55,34 @@
     /* LOGO */
     .logo{text-align:center;margin-bottom:36px}
     .logo-icon{
-      width:76px;height:76px;
+      width:78px;height:78px;
       background:linear-gradient(135deg,var(--primary),var(--secondary));
       border-radius:22px;display:flex;align-items:center;justify-content:center;
-      margin:0 auto 14px;font-size:34px;
+      margin:0 auto 16px;font-size:36px;
       box-shadow:0 0 40px rgba(0,212,255,.4);
       animation:glow 2s ease-in-out infinite;
     }
-    @keyframes glow{0%,100%{box-shadow:0 0 30px rgba(0,212,255,.4)}50%{box-shadow:0 0 60px rgba(0,212,255,.7)}}
-    .logo-title{font-size:22px;font-weight:900;color:#fff}
-    .logo-sub{font-size:12px;color:var(--muted);margin-top:4px}
+    @keyframes glow{0%,100%{box-shadow:0 0 30px rgba(0,212,255,.4)}50%{box-shadow:0 0 65px rgba(0,212,255,.75)}}
+    .logo-title{font-size:24px;font-weight:900;color:#fff;letter-spacing:-0.5px}
+    .logo-sub{font-size:13px;color:var(--muted);margin-top:5px}
 
     /* FORM */
-    .form-group{margin-bottom:16px}
-    label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin-bottom:7px;letter-spacing:.5px}
+    .form-group{margin-bottom:18px}
+    label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin-bottom:8px;letter-spacing:.5px}
     .input-wrap{position:relative}
-    .input-icon{position:absolute;right:13px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none}
-    input,select{
-      width:100%;padding:12px 42px 12px 14px;
-      background:rgba(255,255,255,.05);border:1px solid var(--border);
-      border-radius:11px;color:var(--text);font-family:'Cairo',sans-serif;
-      font-size:14px;outline:none;transition:.25s ease;direction:ltr;text-align:left;
+    .input-icon{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:17px;pointer-events:none}
+    input{
+      width:100%;padding:13px 44px 13px 14px;
+      background:rgba(255,255,255,.06);border:1px solid var(--border);
+      border-radius:12px;color:var(--text);font-family:'Cairo',sans-serif;
+      font-size:14px;outline:none;transition:.25s ease;
     }
-    input:focus,select:focus{border-color:var(--primary);background:rgba(0,212,255,.05);box-shadow:0 0 0 3px rgba(0,212,255,.1)}
+    input:focus{border-color:var(--primary);background:rgba(0,212,255,.06);box-shadow:0 0 0 3px rgba(0,212,255,.12)}
     input::placeholder{color:rgba(255,255,255,.2)}
-    select option{background:#0d1530}
-
-    /* ROW */
-    .row{display:grid;grid-template-columns:1fr auto;gap:10px}
-    .row input{width:100%}
-
-    /* DIVIDER */
-    .divider{display:flex;align-items:center;gap:12px;margin:8px 0 16px}
-    .divider span{font-size:11px;color:var(--muted);white-space:nowrap}
-    .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
 
     /* BTN */
     .btn-connect{
-      width:100%;padding:15px;margin-top:4px;
+      width:100%;padding:15px;margin-top:6px;
       background:linear-gradient(135deg,var(--primary),var(--secondary));
       border:none;border-radius:12px;color:#fff;
       font-family:'Cairo',sans-serif;font-size:16px;font-weight:700;
@@ -104,25 +94,30 @@
       transition:left .4s;
     }
     .btn-connect:hover::before{left:100%}
-    .btn-connect:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(0,212,255,.4)}
+    .btn-connect:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,212,255,.45)}
     .btn-connect:disabled{opacity:.6;cursor:not-allowed;transform:none}
 
     /* RESULT */
     .result{
-      padding:12px 16px;border-radius:10px;font-size:13px;
+      padding:13px 16px;border-radius:10px;font-size:13px;
       margin-top:14px;display:none;align-items:center;gap:8px;
     }
-    .result.ok{background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);color:#6ee7b7}
-    .result.err{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#fca5a5}
-    .result.loading{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:#fde68a}
-
-    /* HINTS */
-    .hints{margin-top:22px;padding:14px;background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.12);border-radius:10px}
-    .hints-title{font-size:11px;font-weight:700;color:var(--primary);margin-bottom:8px;letter-spacing:.5px}
-    .hint-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:4px}
+    .result.ok{background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);color:#6ee7b7;display:flex}
+    .result.err{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#fca5a5;display:flex}
+    .result.loading{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:#fde68a;display:flex}
 
     .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:middle}
     @keyframes sp{to{transform:rotate(360deg)}}
+
+    /* INFO BOX */
+    .info-box{
+      margin-top:22px;padding:14px 16px;
+      background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.12);
+      border-radius:10px;
+    }
+    .info-title{font-size:11px;font-weight:700;color:var(--primary);margin-bottom:8px;letter-spacing:.5px}
+    .info-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:4px}
+    .info-item b{color:rgba(0,212,255,.85)}
   </style>
 </head>
 <body>
@@ -134,39 +129,15 @@
     <div class="logo">
       <div class="logo-icon">🔌</div>
       <div class="logo-title">MikroTik SaaS</div>
-      <div class="logo-sub">اتصال مباشر بجهاز RouterOS</div>
+      <div class="logo-sub">لوحة إدارة المايكروتك المتكاملة</div>
     </div>
 
-    <form id="form" onsubmit="connect(event)">
+    <form id="form" onsubmit="doLogin(event)">
       <div class="form-group">
-        <label>عنوان IP أو Hostname *</label>
-        <div class="input-wrap">
-          <span class="input-icon">🌐</span>
-          <input id="host" type="text" placeholder="192.168.88.1" required autocomplete="off">
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="form-group" style="margin-bottom:0">
-          <label>المنفذ (API Port)</label>
-          <input id="port" type="number" value="8728" min="1" max="65535">
-        </div>
-        <div class="form-group" style="margin-bottom:0">
-          <label>Protocol</label>
-          <select id="proto">
-            <option value="8728">API</option>
-            <option value="8729">API-SSL</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="divider"><span>بيانات الدخول لـ MikroTik</span></div>
-
-      <div class="form-group">
-        <label>اسم المستخدم *</label>
+        <label>اسم المستخدم</label>
         <div class="input-wrap">
           <span class="input-icon">👤</span>
-          <input id="user" type="text" placeholder="admin" value="admin" required>
+          <input id="username" type="text" placeholder="admin" value="admin" required autocomplete="username">
         </div>
       </div>
 
@@ -174,30 +145,29 @@
         <label>كلمة المرور</label>
         <div class="input-wrap">
           <span class="input-icon">🔒</span>
-          <input id="pass" type="password" placeholder="اتركها فارغة إن لم تكن هناك كلمة مرور">
+          <input id="password" type="password" placeholder="••••••••" required autocomplete="current-password">
         </div>
       </div>
 
       <button class="btn-connect" id="btn" type="submit">
-        <span id="btnText">🔌 اتصال مباشر</span>
+        <span id="btnText">🚀 دخول للوحة التحكم</span>
       </button>
     </form>
 
     <div class="result" id="result"></div>
 
-    <div class="hints">
-      <div class="hints-title">📋 متطلبات MikroTik</div>
-      <div class="hint-item">⚙️ IP Services → API يجب أن يكون مفعّلاً (Port 8728)</div>
-      <div class="hint-item">👤 المستخدم يحتاج صلاحية <b style="color:var(--primary)">read + write + api</b></div>
-      <div class="hint-item">🔥 Firewall يسمح للـ IP بالوصول لمنفذ 8728</div>
+    <div class="info-box">
+      <div class="info-title">📋 معلومات الدخول</div>
+      <div class="info-item">👤 المستخدم: <b>admin</b></div>
+      <div class="info-item">🔒 كلمة المرور: <b>admin123</b></div>
     </div>
   </div>
 </div>
 
 <script>
   // Particles
-  ['#00d4ff','#7c3aed','#10b981'].forEach((c,ci) => {
-    for(let i=0;i<5;i++){
+  ['#00d4ff','#7c3aed','#10b981'].forEach((c) => {
+    for(let i=0;i<6;i++){
       const p=document.createElement('div');p.className='particle';
       const s=Math.random()*4+2;
       p.style.cssText=`width:${s}px;height:${s}px;background:${c};left:${Math.random()*100}%;animation-duration:${12+Math.random()*10}s;animation-delay:${Math.random()*8}s;`;
@@ -205,58 +175,49 @@
     }
   });
 
-  // Auto-detect port from proto select
-  document.getElementById('proto').addEventListener('change', function(){
-    document.getElementById('port').value = this.value;
-  });
-
   // Check existing session
   const token = localStorage.getItem('mt_token');
-  const device = localStorage.getItem('mt_device');
-  if(token && device) {
+  if(token) {
     fetch('/api/auth/verify', { headers:{'Authorization':'Bearer '+token} })
       .then(r=>r.json()).then(d=>{ if(d.success) window.location.href='/dashboard'; })
       .catch(()=>{ localStorage.clear(); });
   }
 
-  async function connect(e) {
+  async function doLogin(e) {
     e.preventDefault();
-    const host = document.getElementById('host').value.trim();
-    const port = parseInt(document.getElementById('port').value) || 8728;
-    const user = document.getElementById('user').value.trim();
-    const pass = document.getElementById('pass').value;
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
     const btn  = document.getElementById('btn');
     const btnT = document.getElementById('btnText');
     const res  = document.getElementById('result');
 
     btn.disabled = true;
-    btnT.innerHTML = '<span class="spin"></span> جاري الاتصال بـ MikroTik...';
+    btnT.innerHTML = '<span class="spin"></span> جاري التحقق...';
     res.className = 'result loading';
-    res.style.display = 'flex';
-    res.innerHTML = '⏳ جاري الاتصال...';
+    res.innerHTML = '⏳ جاري التحقق من بيانات الدخول...';
 
     try {
-      const r = await fetch('/api/auth/mikrotik-login', {
+      const r = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ host, port, username: user, password: pass })
+        body: JSON.stringify({ username, password })
       });
       const data = await r.json();
 
       if(data.success) {
         localStorage.setItem('mt_token', data.token);
-        localStorage.setItem('mt_device', JSON.stringify(data.device));
+        localStorage.setItem('mt_user', JSON.stringify({ username: data.username }));
         res.className = 'result ok';
-        res.innerHTML = `✅ متصل بنجاح! ${data.device.identity} | ${data.device.model || ''} | RouterOS ${data.device.version || ''}`;
-        setTimeout(() => window.location.href = '/dashboard', 800);
+        res.innerHTML = `✅ مرحباً ${data.username}! جاري التوجيه...`;
+        setTimeout(() => window.location.href = '/dashboard', 600);
       } else {
-        throw new Error(data.message || 'فشل الاتصال');
+        throw new Error(data.message || 'فشل تسجيل الدخول');
       }
     } catch(err) {
       res.className = 'result err';
       res.innerHTML = '❌ ' + err.message;
       btn.disabled = false;
-      btnT.textContent = '🔌 اتصال مباشر';
+      btnT.textContent = '🚀 دخول للوحة التحكم';
     }
   }
 </script>

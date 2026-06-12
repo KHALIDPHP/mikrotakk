@@ -1,59 +1,42 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const { testConnection } = require('../mikrotik/api');
+const db = require('../database/db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'mikrotik_saas_secret';
 
-// ─── Direct MikroTik Login ──────────────────────────────────────────────────
-// User enters MikroTik IP/user/pass → test connection → issue JWT with device info
-router.post('/mikrotik-login', async (req, res) => {
-  try {
-    const { host, port, username, password } = req.body;
+// بيانات الدخول الثابتة
+const ADMIN_USER = process.env.ADMIN_USER || 'admin';
+const ADMIN_PASS = process.env.ADMIN_PASS || 'admin123';
 
-    if (!host || !username) {
-      return res.status(400).json({ success: false, message: 'عنوان IP واسم المستخدم مطلوبان' });
-    }
+// ─── Login بمستخدم وكلمة مرور ثابتة ─────────────────────────────────────────
+router.post('/login', async (req, res) => {
+  const { username, password } = req.body;
 
-    const apiPort = parseInt(port) || 8728;
-
-    // Test MikroTik connection
-    const test = await testConnection(host, apiPort, username, password || '');
-
-    if (!test.success) {
-      return res.status(401).json({
-        success: false,
-        message: `فشل الاتصال بـ MikroTik: ${test.error || 'تحقق من IP وبيانات الدخول'}`
-      });
-    }
-
-    // Issue JWT with device credentials embedded
-    const deviceInfo = {
-      host,
-      port: apiPort,
-      username,
-      password: password || '',
-      identity: test.identity,
-      model: test.model,
-      version: test.version,
-      arch: test.arch
-    };
-
-    const token = jwt.sign(
-      { device: deviceInfo, role: 'admin' },
-      JWT_SECRET,
-      { expiresIn: '12h' }
-    );
-
-    res.json({
-      success: true,
-      token,
-      device: deviceInfo
-    });
-  } catch (err) {
-    console.error('MikroTik login error:', err.message);
-    res.status(500).json({ success: false, message: err.message });
+  if (!username || !password) {
+    return res.status(400).json({ success: false, message: 'اسم المستخدم وكلمة المرور مطلوبان' });
   }
+
+  if (username !== ADMIN_USER || password !== ADMIN_PASS) {
+    return res.status(401).json({ success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
+  }
+
+  // الحصول على المعرف الخاص بالمستخدم من قاعدة البيانات
+  let userId = 1;
+  try {
+    const user = await db.get('SELECT id FROM users WHERE username = ?', [username]);
+    if (user) userId = user.id;
+  } catch (err) {
+    console.error('Database query error:', err.message);
+  }
+
+  const token = jwt.sign(
+    { id: userId, role: 'admin', username: ADMIN_USER },
+    JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+
+  res.json({ success: true, token, username: ADMIN_USER });
 });
 
 // ─── Verify token ────────────────────────────────────────────────────────────
@@ -62,7 +45,7 @@ router.get('/verify', (req, res) => {
   if (!token) return res.status(401).json({ success: false });
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    res.json({ success: true, device: decoded.device });
+    res.json({ success: true, username: decoded.username });
   } catch {
     res.status(401).json({ success: false, message: 'جلسة منتهية' });
   }
